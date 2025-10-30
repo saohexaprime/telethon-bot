@@ -4,13 +4,13 @@ import re
 import requests
 from telethon import TelegramClient, events, errors
 from datetime import timedelta
-from keep_alive import keep_alive
+# ---- from keep_alive import keep_alive
 import os
 import signal
 import sys
 
 # --- Start the web server ---
-keep_alive()
+# ---- keep_alive()
 
 # === TELEGRAM BOT CREDENTIALS ===
 api_id = int(os.environ.get("API_ID"))
