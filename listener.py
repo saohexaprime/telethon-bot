@@ -4,17 +4,24 @@ import re
 import requests
 from telethon import TelegramClient, events, errors
 from datetime import timedelta
+from keep_alive import keep_alive
+import os
+import signal
+import sys
+
+# --- Start the web server ---
+keep_alive()
 
 # === TELEGRAM BOT CREDENTIALS ===
-api_id = 26196044
-api_hash = "5c47c8a9e95d68dbe220965b9e9ce520"
-phone = "+639973584566"  # your phone number in international format
+api_id = int(os.environ.get("26196044"))
+api_hash = os.environ.get("5c47c8a9e95d68dbe220965b9e9ce520")
+phone = os.environ.get("639973584566")
 
 # === GOOGLE APPS SCRIPT WEBHOOK URL ===
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxt3n1C0srFJXxBZ0rpHWdMw_Ps8lih3HkU3DExmy-EageSW4-Ic-gBZN_zXXI979agmQ/exec"
+WEBHOOK_URL = os.environ.get("https://script.google.com/macros/s/AKfycbxt3n1C0srFJXxBZ0rpHWdMw_Ps8lih3HkU3DExmy-EageSW4-Ic-gBZN_zXXI979agmQ/exec")
 
 # === GROUP NAME TO LISTEN TO ===
-GROUP_NAME = "Hexa Tickets Cancellations"
+GROUP_NAME = os.environ.get("Hexa Tickets Cancellations")
 
 # === REGEX TO PARSE MESSAGES ===
 pattern = re.compile(
@@ -26,7 +33,7 @@ pattern = re.compile(
 def ph_time(utc_dt):
     return (utc_dt + timedelta(hours=8)).strftime("%m/%d/%Y %I:%M:%S %p")
 
-# === MAIN ASYNC FUNCTION ===
+# --- Async Telegram bot ---
 async def run_bot():
     while True:
         try:
@@ -39,7 +46,7 @@ async def run_bot():
                 chat = await event.get_chat()
                 chat_title = getattr(chat, 'title', None)
                 if chat_title != GROUP_NAME:
-                    return  # Ignore other groups
+                    return
 
                 message = event.raw_text.strip()
                 segments = [seg.strip() for seg in re.split(r'\n\s*\n', message) if seg.strip()]
@@ -47,42 +54,31 @@ async def run_bot():
                 for seg in segments:
                     match = pattern.search(seg)
                     if not match:
-                        print("⚪ Ignored non-matching message segment:\n", seg)
                         continue
 
                     approver, action, ticket, refcode, booth = match.groups()
-                    print(f"✅ Matched: Approver={approver}, Action={action}, Ticket={ticket}, Ref={refcode}, Booth={booth}")
 
-                    # --- Inline mapping ---
-                    full_title = f"{approver.strip()}"
-                    if full_title == "Stefanie Obenza":
-                        cancelled_by = "STEF"
-                    elif full_title == "Michael Romo":
-                        cancelled_by = "MIKE"
-                    elif full_title == "Kedev":
-                        cancelled_by = "KHEDEV"
-                    elif full_title == "Richfield James P. Villanueva":
-                        cancelled_by = "TROY"
-                    else:
-                        cancelled_by = full_title  # fallback
+                    # --- Map approvers ---
+                    full_title = approver.strip()
+                    cancelled_by = {
+                        "Stefanie Obenza": "STEF",
+                        "Michael Romo": "MIKE",
+                        "Kedev": "KHEDEV",
+                        "Richfield James P. Villanueva": "TROY"
+                    }.get(full_title, full_title)
 
                     status = "APPROVED ✅" if "approved" in action.lower() else "DENIED ❌"
-
                     booth = booth.strip().upper()
-                    if booth.startswith("R.CDO"):
+
+                    # --- Determine area ---
+                    if booth.startswith("R.CDO") or booth.startswith(("CDO", "CDO-PAY")):
                         area = "CDO"
-                    elif booth.startswith("R.MOW") or booth.startswith("R.MOE"):
-                        area = "MISOR"
-                    elif booth.startswith(("CDO", "CDO-PAY")):
-                        area = "CDO"
-                    elif booth.startswith(("MOW", "MOE", "MOW-PAY", "MOE-PAY")):
+                    elif booth.startswith(("R.MOW", "R.MOE", "MOW", "MOE", "MOW-PAY", "MOE-PAY")):
                         area = "MISOR"
                     else:
                         area = "Unknown"
 
-                    # --- Use PH local time for payload ---
                     message_time = ph_time(event.message.date)
-
                     payload = {
                         "date": message_time,
                         "ticket": ticket,
@@ -105,8 +101,17 @@ async def run_bot():
             print(f"⚠️ Connection lost: {e}. Reconnecting in 5 seconds...")
             await asyncio.sleep(5)
 
-# === RUN THE BOT ===
-if __name__ == "__main__":
-    from keep_alive import keep_alive  # ✅ keeps Replit awake
-    keep_alive()  # ✅ start Replit webserver to prevent sleep
-    asyncio.run(run_bot())
+# --- Graceful shutdown ---
+loop = asyncio.get_event_loop()
+
+def shutdown(*args):
+    for task in asyncio.all_tasks(loop):
+        task.cancel()
+    loop.stop()
+    sys.exit(0)
+
+for sig in (signal.SIGINT, signal.SIGTERM):
+    loop.add_signal_handler(sig, shutdown)
+
+# --- Run the bot ---
+loop.run_until_complete(run_bot())
