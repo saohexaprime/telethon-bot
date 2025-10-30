@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: my-telegram-bot
-    env: python
-    region: singapore
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python3 listener.py"
-    plan: free
