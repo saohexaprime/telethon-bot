@@ -2,15 +2,9 @@ import asyncio
 import datetime
 import re
 import requests
+import os
 from telethon import TelegramClient, events, errors
 from datetime import timedelta
-# ---- from keep_alive import keep_alive
-import os
-import signal
-import sys
-
-# --- Start the web server ---
-# ---- keep_alive()
 
 # === TELEGRAM BOT CREDENTIALS ===
 api_id = int(os.environ.get("API_ID"))
@@ -29,7 +23,7 @@ pattern = re.compile(
     re.IGNORECASE
 )
 
-# --- Helper function to convert UTC to PH time ---
+# --- Convert UTC to PH time ---
 def ph_time(utc_dt):
     return (utc_dt + timedelta(hours=8)).strftime("%m/%d/%Y %I:%M:%S %p")
 
@@ -44,8 +38,7 @@ async def run_bot():
             @client.on(events.NewMessage())
             async def handler(event):
                 chat = await event.get_chat()
-                chat_title = getattr(chat, 'title', None)
-                if chat_title != GROUP_NAME:
+                if getattr(chat, 'title', None) != GROUP_NAME:
                     return
 
                 message = event.raw_text.strip()
@@ -58,7 +51,6 @@ async def run_bot():
 
                     approver, action, ticket, refcode, booth = match.groups()
 
-                    # --- Map approvers ---
                     full_title = approver.strip()
                     cancelled_by = {
                         "Stefanie Obenza": "STEF",
@@ -70,7 +62,7 @@ async def run_bot():
                     status = "APPROVED ✅" if "approved" in action.lower() else "DENIED ❌"
                     booth = booth.strip().upper()
 
-                    # --- Determine area ---
+                    # Determine area
                     if booth.startswith("R.CDO") or booth.startswith(("CDO", "CDO-PAY")):
                         area = "CDO"
                     elif booth.startswith(("R.MOW", "R.MOE", "MOW", "MOE", "MOW-PAY", "MOE-PAY")):
@@ -91,9 +83,9 @@ async def run_bot():
 
                     try:
                         response = requests.post(WEBHOOK_URL, json=payload, timeout=10)
-                        print(f"✅ Sent to webhook ({response.status_code}): {ticket} by {cancelled_by} in {area}")
+                        print(f"✅ Sent: {ticket} by {cancelled_by} in {area}")
                     except Exception as e:
-                        print(f"❌ Error sending to webhook: {e}")
+                        print(f"❌ Error sending webhook: {e}")
 
             await client.run_until_disconnected()
 
@@ -101,17 +93,6 @@ async def run_bot():
             print(f"⚠️ Connection lost: {e}. Reconnecting in 5 seconds...")
             await asyncio.sleep(5)
 
-# --- Graceful shutdown ---
-loop = asyncio.get_event_loop()
-
-def shutdown(*args):
-    for task in asyncio.all_tasks(loop):
-        task.cancel()
-    loop.stop()
-    sys.exit(0)
-
-for sig in (signal.SIGINT, signal.SIGTERM):
-    loop.add_signal_handler(sig, shutdown)
-
 # --- Run the bot ---
-loop.run_until_complete(run_bot())
+if __name__ == "__main__":
+    asyncio.run(run_bot())
