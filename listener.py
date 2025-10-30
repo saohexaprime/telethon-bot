@@ -5,8 +5,6 @@ import requests
 from telethon import TelegramClient, events, errors
 from datetime import timedelta
 
-from keep_alive import keep_alive  # ✅ keeps Replit awake
-
 # === TELEGRAM BOT CREDENTIALS ===
 api_id = 26196044
 api_hash = "5c47c8a9e95d68dbe220965b9e9ce520"
@@ -109,5 +107,6 @@ async def run_bot():
 
 # === RUN THE BOT ===
 if __name__ == "__main__":
+    from keep_alive import keep_alive  # ✅ keeps Replit awake
     keep_alive()  # ✅ start Replit webserver to prevent sleep
     asyncio.run(run_bot())
