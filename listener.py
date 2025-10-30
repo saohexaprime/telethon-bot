@@ -15,7 +15,7 @@ keep_alive()
 # === TELEGRAM BOT CREDENTIALS ===
 api_id = int(os.environ.get("26196044"))
 api_hash = os.environ.get("5c47c8a9e95d68dbe220965b9e9ce520")
-phone = os.environ.get("639973584566")
+phone = os.environ.get("+639973584566")
 
 # === GOOGLE APPS SCRIPT WEBHOOK URL ===
 WEBHOOK_URL = os.environ.get("https://script.google.com/macros/s/AKfycbxt3n1C0srFJXxBZ0rpHWdMw_Ps8lih3HkU3DExmy-EageSW4-Ic-gBZN_zXXI979agmQ/exec")
